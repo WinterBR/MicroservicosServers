@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: eurekaServer
+  security:
+    basic:
+      enabled: true
+    user:
+      name: MicroserviceEurekaUser
+      password: senha1234
+
+server:
+  port: 8761
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+

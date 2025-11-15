@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: CardService
+
+  rabbitmq:
+    host: rabbitmq       # nome do container, não localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  data:
+    mongodb:
+      uri: mongodb://mongodb:27017/cardsdb
+
+  cloud:
+    config:
+      enabled: false
+
+  port: 0
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+
+mq:
+  queues:
+    cards-emission: cards-emission
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+
+logging:
+  file:
+    name: ./logs/log-file.log

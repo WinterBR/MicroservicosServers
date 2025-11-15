@@ -1,0 +1,155 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - app-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.0
+    container_name: keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8010:8080"
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: microservicesdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  mongodb:
+    image: mongo:6
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    networks:
+      - app-network
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      SA_PASSWORD: "YourStrong@Passw0rd"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    networks:
+      - app-network
+
+  eureka-server:
+    build:
+      context: ./EurekaServer
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    depends_on:
+      - postgres
+      - mongodb
+      - sqlserver
+    networks:
+      - app-network
+
+  cloud-gateway:
+    build:
+      context: ./CloudGateway
+    container_name: cloud-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eureka-server
+    environment:
+
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:
+      SPRING_PROFILES_ACTIVE: local
+    networks:
+      - app-network
+
+  client-service:
+    build:
+      context: ./ClientService
+    container_name: client-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - eureka-server
+      - postgres
+      - rabbitmq
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/microservicesdb"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "postgres"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://eureka-server:8761/eureka/"
+    networks:
+      - app-network
+
+  card-service:
+    build:
+      context: ./CardService
+    container_name: card-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - eureka-server
+      - mongodb
+      - rabbitmq
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATA_MONGODB_URI: "mongodb://mongodb:27017/cardsdb"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://eureka-server:8761/eureka/"
+    networks:
+      - app-network
+
+  credit-validator-service:
+    build:
+      context: ./CreditValidatorService
+    container_name: credit-validator-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - eureka-server
+      - sqlserver
+      - rabbitmq
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: "jdbc:sqlserver://sqlserver:1433;databaseName=creditdb"
+      SPRING_DATASOURCE_USERNAME: "sa"
+      SPRING_DATASOURCE_PASSWORD: "YourStrong@Passw0rd"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://eureka-server:8761/eureka/"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  mongodata:
+  sqldata:
